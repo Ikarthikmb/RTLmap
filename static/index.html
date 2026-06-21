@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RTLmap</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #15120f;
+  --surface:     #1c1916;
+  --surface2:    #242018;
+  --surface3:    #2e291f;
+  --border:      #3a3428;
+  --border2:     #4e4738;
+  --text:        #d8cfc0;
+  --text-muted:  #857870;
+  --text-dim:    #574e45;
+  --accent:      #c89830;
+  --accent-dark: #9e7820;
+  --danger:      #9a3828;
+  --ok:          #4a7232;
+  --toolbar-h:   44px;
+  --filter-h:    32px;
+  --sidebar-w:   280px;
+  --font-mono:   'SF Mono','Fira Code','Consolas',monospace;
+  --r:           3px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.012) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── Toolbar ──────────────────────────────────────── */
+#toolbar {
+  height: var(--toolbar-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+#logo {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: .2px;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
+  margin-right: 2px;
+}
+#logo-badge {
+  background: var(--accent-dark);
+  color: rgba(255,255,255,.8);
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  letter-spacing: .3px;
+}
+
+#breadcrumb {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  overflow: hidden;
+  min-width: 0;
+}
+.bc-item {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--r);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition: background .1s, color .1s;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bc-item:hover { background: var(--surface2); color: var(--text); }
+.bc-item.active { color: var(--text); font-weight: 600; cursor: default; }
+.bc-sep { color: var(--text-dim); font-size: 10px; flex-shrink: 0; padding: 0 1px; }
+
+/* Search */
+#search-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 0 6px;
+  gap: 4px;
+  height: 26px;
+  width: 180px;
+}
+#search-wrap:focus-within { border-color: var(--accent); }
+#search-input {
+  background: none; border: none; outline: none;
+  color: var(--text); font-size: 11px; width: 100%;
+}
+#search-input::placeholder { color: var(--text-dim); }
+#search-clear {
+  cursor: pointer; color: var(--text-dim); font-size: 12px;
+  display: none; line-height: 1;
+}
+#search-clear:hover { color: var(--text); }
+
+.tb-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+.btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--r);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 8px;
+  height: 24px;
+  display: flex; align-items: center; gap: 3px;
+  transition: background .1s, color .1s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.btn:hover { background: var(--surface3); color: var(--text); }
+
+/* Level dots */
+#level-dots { display: flex; gap: 3px; align-items: center; padding: 0 4px; }
+.ldot { width: 6px; height: 6px; border-radius: 50%; background: var(--border2); }
+.ldot.active { background: var(--accent); }
+
+/* ── Filter bar ───────────────────────────────────── */
+#filter-bar {
+  height: var(--filter-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 10px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  font-size: 10px;
+}
+#filter-bar::-webkit-scrollbar { display: none; }
+.filter-label {
+  font-size: 9px; color: var(--text-dim);
+  letter-spacing: .8px; white-space: nowrap;
+  margin-right: 8px; text-transform: uppercase;
+}
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px;
+  border-right: 1px solid var(--border);
+  font-size: 10px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: color .1s, background .1s;
+  white-space: nowrap;
+}
+.filter-chip:first-of-type { border-left: 1px solid var(--border); }
+.filter-chip:hover { background: var(--surface2); color: var(--text-muted); }
+.filter-chip.active { color: var(--text); }
+.filter-chip .cdot { width: 5px; height: 5px; border-radius: 1px; flex-shrink: 0; }
+
+/* ── Layout ───────────────────────────────────────── */
+#main { flex: 1; display: flex; overflow: hidden; }
+
+/* ── Overview ─────────────────────────────────────── */
+#overview {
+  position: absolute; inset: 0; overflow-y: auto;
+  padding: 20px; display: none;
+}
+#overview.visible { display: block; }
+#overview::-webkit-scrollbar { width: 5px; }
+#overview::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.ov-title {
+  font-size: 9px; font-weight: 700; letter-spacing: .9px;
+  color: var(--text-dim); text-transform: uppercase;
+  margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+}
+.ov-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+.module-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px; margin-bottom: 24px;
+}
+
+.mod-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background .1s, border-color .1s;
+  border-left: 3px solid var(--border2);
+}
+.mod-card:hover { background: var(--surface3); border-color: var(--border2); }
+.mod-card.is-top { border-left-color: var(--accent); }
+.mod-card.is-orphan { border-left-color: var(--text-dim); opacity: .75; }
+.mod-card.is-orphan:hover { opacity: 1; }
+
+.mod-name {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  margin-bottom: 2px; display: flex; align-items: center; gap: 6px;
+}
+.mod-badge {
+  font-size: 8px; font-weight: 700; padding: 1px 4px;
+  border-radius: 2px; letter-spacing: .3px;
+}
+.mod-badge.top { background: var(--accent-dark); color: #fff; }
+.mod-badge.orphan { background: var(--surface3); color: var(--text-dim); border: 1px solid var(--border2); }
+
+.mod-file { font-size: 9px; color: var(--text-dim); font-family: var(--font-mono); margin-bottom: 8px; }
+
+.mod-types { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 6px; }
+.mod-type-tag {
+  font-size: 8px; padding: 1px 5px;
+  background: rgba(0,0,0,.25); color: rgba(255,255,255,.7);
+  border-radius: 1px; font-weight: 600;
+}
+
+.mod-stats { font-size: 9px; color: var(--text-dim); }
+.mod-stats span { color: var(--text-muted); }
+
+/* ── Canvas ───────────────────────────────────────── */
+#canvas-wrap { flex: 1; overflow: hidden; position: relative; }
+#canvas {
+  width: 100%; height: 100%;
+  cursor: grab; display: block;
+}
+#canvas:active { cursor: grabbing; }
+
+/* SVG block/edge classes */
+.block-group { cursor: pointer; }
+.block-group.dimmed { opacity: .15; pointer-events: none; }
+.block-group.selected .block-rect {
+  stroke: var(--accent) !important;
+  stroke-width: 2 !important;
+}
+.edge-path {
+  fill: none;
+  stroke: rgba(210,195,170,.2);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.edge-label {
+  fill: rgba(210,195,170,.35);
+  font-size: 8px;
+  font-family: monospace;
+  pointer-events: none;
+}
+.port-dot { cursor: pointer; transition: r .1s; }
+
+/* ── Sidebar ──────────────────────────────────────── */
+#sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden; flex-shrink: 0;
+}
+#sb-head {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; gap: 8px; align-items: flex-start;
+}
+#sb-icon { font-size: 20px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+#sb-title { font-size: 12px; font-weight: 700; color: var(--text); }
+#sb-sub {
+  font-size: 9px; color: var(--text-muted);
+  font-family: var(--font-mono); margin-top: 2px;
+}
+#sb-body { flex: 1; overflow-y: auto; padding: 10px 12px; }
+#sb-body::-webkit-scrollbar { width: 3px; }
+#sb-body::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.sb-sec { margin-bottom: 14px; }
+.sb-lbl {
+  font-size: 8px; font-weight: 700; letter-spacing: .8px;
+  color: var(--text-dim); text-transform: uppercase;
+  margin-bottom: 5px; padding-bottom: 3px;
+  border-bottom: 1px solid var(--border);
+}
+.sb-kv {
+  display: flex; justify-content: space-between;
+  font-size: 10px; padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+}
+.sb-k { color: var(--text-muted); }
+.sb-v { color: var(--text); font-family: var(--font-mono); font-size: 9px; }
+
+.conf-track {
+  height: 4px; background: var(--surface3);
+  border-radius: 2px; overflow: hidden; margin-top: 4px;
+}
+.conf-fill { height: 100%; transition: width .3s; }
+
+.port-list { display: flex; flex-direction: column; gap: 2px; }
+.port-row {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 10px; font-family: var(--font-mono);
+  padding: 2px 3px; border-radius: 2px; cursor: pointer;
+}
+.port-row:hover { background: var(--surface2); }
+.port-dir {
+  font-size: 7px; font-weight: 700; padding: 1px 3px;
+  border-radius: 1px; flex-shrink: 0;
+}
+.port-dir.in  { background: #2e4020; color: #7aaa50; }
+.port-dir.out { background: #4a2e14; color: #b07040; }
+.port-dir.io  { background: #3a3018; color: #a08850; }
+.port-name { color: var(--text); flex: 1; }
+.port-width { color: var(--text-dim); font-size: 8px; }
+
+.snip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 6px 8px;
+  font-family: var(--font-mono); font-size: 9px;
+  color: var(--text-muted); white-space: pre-wrap;
+  max-height: 110px; overflow-y: auto; line-height: 1.55;
+}
+.op-list { display: flex; flex-wrap: wrap; gap: 3px; }
+.op-tag {
+  background: var(--surface3); border: 1px solid var(--border);
+  color: var(--text-muted); font-size: 8px;
+  font-family: var(--font-mono); padding: 1px 5px; border-radius: 2px;
+}
+.drill-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); cursor: pointer; border-radius: var(--r);
+  font-size: 10px; padding: 6px 10px; width: 100%;
+  display: flex; align-items: center; gap: 5px;
+  transition: background .1s; text-align: left; margin-bottom: 4px;
+  font-family: inherit;
+}
+.drill-btn:hover { background: var(--surface3); border-color: var(--border2); }
+.drill-btn.hi { border-color: var(--accent-dark); color: var(--accent); }
+.drill-btn.hi:hover { background: var(--accent-dark); color: #fff; }
+
+#sb-empty {
+  padding: 20px 12px; text-align: center;
+  color: var(--text-dim); font-size: 11px; line-height: 1.8;
+}
+
+/* ── Stats ────────────────────────────────────────── */
+#statsbar {
+  height: 22px; background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 10px; gap: 14px;
+  font-size: 9px; color: var(--text-dim); flex-shrink: 0;
+}
+#statsbar span { color: var(--text-muted); }
+#stat-right { margin-left: auto; font-family: var(--font-mono); }
+
+/* ── Toast ────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 32px; left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  background: var(--surface3); border: 1px solid var(--border2);
+  color: var(--text); font-size: 10px;
+  padding: 4px 12px; border-radius: 12px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s, transform .2s; z-index: 999;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Port tooltip ─────────────────────────────────── */
+.ptip {
+  position: fixed;
+  background: var(--surface3); border: 1px solid var(--border2);
+  color: var(--text); font-size: 9px; font-family: var(--font-mono);
+  padding: 2px 7px; border-radius: 2px;
+  pointer-events: none; z-index: 998; white-space: nowrap;
+}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <div id="logo">⬡ RTLmap <span id="logo-badge">β</span></div>
+
+  <div id="breadcrumb">
+    <span class="bc-item active" id="bc-root" onclick="goOverview()">Overview</span>
+  </div>
+
+  <div id="search-wrap">
+    <span style="color:var(--text-dim);font-size:11px">⌕</span>
+    <input id="search-input" type="text" placeholder="Search blocks, ports…" autocomplete="off">
+    <span id="search-clear" onclick="clearSearch()">×</span>
+  </div>
+
+  <div class="tb-right">
+    <div id="level-dots">
+      <div class="ldot active" id="dot0"></div>
+      <div class="ldot" id="dot1"></div>
+      <div class="ldot" id="dot2"></div>
+      <div class="ldot" id="dot3"></div>
+    </div>
+    <button class="btn" onclick="fitView()">⊞ Fit</button>
+    <button class="btn" onclick="exportSVG()">↓ SVG</button>
+    <button class="btn" id="back-btn" onclick="goBack()" style="display:none">← Back</button>
+  </div>
+</div>
+
+<div id="filter-bar">
+  <span class="filter-label">Type</span>
+</div>
+
+<div id="main">
+  <!-- Overview grid -->
+  <div id="overview" class="visible">
+    <div id="ov-main">
+      <div class="ov-title">Hierarchy</div>
+      <div class="module-grid" id="ov-grid"></div>
+    </div>
+    <div id="ov-orphans" style="display:none">
+      <div class="ov-title">Standalone</div>
+      <div class="module-grid" id="ov-orphan-grid"></div>
+    </div>
+  </div>
+
+  <!-- SVG canvas -->
+  <div id="canvas-wrap" style="display:none; position:relative;">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M1,1 L6,3.5 L1,6" fill="none" stroke="rgba(210,195,170,.35)" stroke-width="1"/>
+        </marker>
+      </defs>
+      <g id="scene"></g>
+    </svg>
+    <!-- Column labels drawn dynamically -->
+    <div id="col-labels" style="position:absolute;top:8px;left:0;right:0;pointer-events:none;"></div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sb-head" style="display:none">
+      <div id="sb-icon">□</div>
+      <div><div id="sb-title">Block</div><div id="sb-sub">—</div></div>
+    </div>
+    <div id="sb-body" style="display:none"></div>
+    <div id="sb-empty">
+      ⬡<br><br>
+      Click a block to inspect<br>
+      Double-click to drill in<br>
+      <div style="margin-top:10px;font-size:9px;color:var(--text-dim)">
+        F = fit · Esc = back · / = search
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="statsbar">
+  <span id="s-mod"><span>0</span> mod</span>
+  <span id="s-blk"><span>0</span> blocks</span>
+  <span id="s-con"><span>0</span> conns</span>
+  <span id="stat-right"></span>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const BW = 158, BH = 72;
+const COL_GAP = 90, ROW_GAP = 22;
+
+const S = {
+  design: null, level: 0,
+  history: [],
+  currentModule: null, currentBlock: null, selectedId: null,
+  zoom: 1, panX: 0, panY: 0,
+  dragging: false, dsx: 0, dsy: 0,
+  hiddenTypes: new Set(),
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const r = await fetch('/api/design');
+    S.design = await r.json();
+    buildFilterChips();
+    updateStats();
+    const top = S.design.top_module;
+    if (top && S.design.modules && S.design.modules[top]) {
+      openModule(top);
+    } else {
+      renderOverview();
+    }
+  } catch(e) {
+    document.getElementById('sb-empty').innerHTML =
+      `<div style="color:var(--danger);font-size:10px">Load failed.<br>${e}</div>`;
+  }
+});
+
+// ── Filter chips ──────────────────────────────────────────────────────────────
+const TYPE_COLORS = {};
+
+function buildFilterChips() {
+  const bar = document.getElementById('filter-bar');
+  const counts = {};
+  const colorMap = {};
+  for (const m of Object.values(S.design.modules || {})) {
+    for (const b of m.blocks || []) {
+      counts[b.type] = (counts[b.type]||0)+1;
+      colorMap[b.type] = b.color;
+    }
+  }
+  Object.assign(TYPE_COLORS, colorMap);
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  for (const [t, cnt] of sorted) {
+    const chip = document.createElement('div');
+    chip.className = 'filter-chip active';
+    chip.dataset.type = t;
+    const dot = `<span class="cdot" style="background:${colorMap[t]||'#888'}"></span>`;
+    chip.innerHTML = `${dot}${t} <span style="color:var(--text-dim)">${cnt}</span>`;
+    chip.addEventListener('click', () => {
+      chip.classList.toggle('active');
+      if (chip.classList.contains('active')) S.hiddenTypes.delete(t);
+      else S.hiddenTypes.add(t);
+      applyTypeFilter();
+    });
+    bar.appendChild(chip);
+  }
+}
+
+function applyTypeFilter() {
+  document.querySelectorAll('.block-group[data-type]').forEach(g => {
+    g.classList.toggle('dimmed', S.hiddenTypes.has(g.dataset.type));
+  });
+}
+
+// ── Overview ──────────────────────────────────────────────────────────────────
+function renderOverview() {
+  S.level = 0; updateDots();
+  updateBreadcrumb([]);
+  document.getElementById('back-btn').style.display = 'none';
+  document.getElementById('overview').classList.add('visible');
+  document.getElementById('canvas-wrap').style.display = 'none';
+  clearSidebar();
+
+  const grid  = document.getElementById('ov-grid');
+  const ogrid = document.getElementById('ov-orphan-grid');
+  const osec  = document.getElementById('ov-orphans');
+  grid.innerHTML = ''; ogrid.innerHTML = '';
+
+  const mods = S.design.modules || {};
+  const orphanSet = new Set(S.design.orphan_modules || []);
+  const top = S.design.top_module;
+
+  const main = Object.entries(mods)
+    .filter(([n])=>!orphanSet.has(n))
+    .sort(([an,am],[bn,bm])=> an===top?-1 : bn===top?1 : (am.hierarchy_depth||99)-(bm.hierarchy_depth||99));
+
+  for (const [n,m] of main) grid.appendChild(makeCard(n,m));
+
+  const orphans = Object.entries(mods).filter(([n])=>orphanSet.has(n));
+  if (orphans.length) {
+    osec.style.display='';
+    for (const [n,m] of orphans) ogrid.appendChild(makeCard(n,m));
+  } else { osec.style.display='none'; }
+}
+
+function makeCard(name, mod) {
+  const card = document.createElement('div');
+  const isTop = mod.is_top || name===S.design.top_module;
+  const isOrph = mod.is_orphan;
+  card.className = `mod-card${isTop?' is-top':''}${isOrph?' is-orphan':''}`;
+
+  const tc={};
+  for (const b of mod.blocks||[]) tc[b.type]=(tc[b.type]||0)+1;
+  const tags = Object.entries(tc).sort((a,b)=>b[1]-a[1]).slice(0,4)
+    .map(([t])=>`<span class="mod-type-tag" style="background:${TYPE_COLORS[t]||'#444'}">${t}</span>`).join('');
+
+  card.innerHTML=`
+    <div class="mod-name">${esc(name)}
+      ${isTop?'<span class="mod-badge top">TOP</span>':''}
+      ${isOrph?'<span class="mod-badge orphan">standalone</span>':''}
+    </div>
+    <div class="mod-file">${esc(mod.file||'')}${mod.hierarchy_depth>=0?' · depth '+mod.hierarchy_depth:''}</div>
+    <div class="mod-types">${tags||'<span style="color:var(--text-dim);font-size:9px">no blocks</span>'}</div>
+    <div class="mod-stats"><span>${(mod.blocks||[]).length}</span> blocks · <span>${(mod.ports||[]).length}</span> ports${mod.line_count?` · <span>${mod.line_count}</span> lines`:''}</div>`;
+  card.onclick = () => openModule(name);
+  return card;
+}
+
+// ── Module view ───────────────────────────────────────────────────────────────
+function openModule(name) {
+  const mod = (S.design.modules||{})[name];
+  if (!mod) return;
+  S.currentModule = mod;
+  S.level = 1; updateDots();
+  updateBreadcrumb([{label:name}]);
+  document.getElementById('back-btn').style.display='';
+  document.getElementById('overview').classList.remove('visible');
+  document.getElementById('canvas-wrap').style.display='';
+  clearSidebar();
+  renderModule(mod);
+  updateStats(mod);
+}
+
+function renderModule(mod) {
+  const scene = document.getElementById('scene');
+  scene.innerHTML = '';
+  document.getElementById('col-labels').innerHTML = '';
+  S.selectedId = null;
+
+  const blocks = mod.blocks||[];
+  const conns  = mod.connections||[];
+
+  const layout = layoutBlocks(blocks, conns);
+  const pos    = layout.positions;
+  const colLabels = layout.colLabels || {};
+
+  // Column labels
+  const colLabel = document.getElementById('col-labels');
+  for (const [cx, label] of Object.entries(colLabels)) {
+    const d = document.createElement('div');
+    d.style.cssText = `position:absolute;left:${(+cx)*1}px;font-size:8px;
+      color:var(--text-dim);letter-spacing:.6px;text-transform:uppercase;
+      pointer-events:none;padding-top:4px;text-align:center;width:${BW}px`;
+    d.textContent = label;
+    colLabel.appendChild(d);
+  }
+
+  // Edges (drawn first, behind blocks)
+  for (const c of conns) {
+    const ps = pos[c.from_block], pd = pos[c.to_block];
+    if (!ps||!pd) continue;
+    drawEdge(scene, ps.x+BW, ps.y+BH/2, pd.x, pd.y+BH/2, c.label);
+  }
+
+  // Blocks
+  for (const b of blocks) {
+    const p = pos[b.id] || {x:40,y:40};
+    const g = drawBlock(scene, b, p.x, p.y);
+    g.addEventListener('click', e => { e.stopPropagation(); selectBlock(b,g); });
+    g.addEventListener('dblclick', e => { e.stopPropagation(); drillBlock(b); });
+  }
+
+  fitView();
+}
+
+// ── Composition / Gates ───────────────────────────────────────────────────────
+function renderComposition(b) {
+  const items = b.drilldown_composition||[];
+  if (!items.length) return;
+  S.level=2; updateDots();
+  const scene = document.getElementById('scene');
+  scene.innerHTML=''; S.selectedId=null;
+  let x=40;
+  for (let i=0;i<items.length;i++) {
+    const it=items[i];
+    const bg={id:it.id,label:it.label,sublabel:it.type,type:it.type,
+      color:it.color,icon:it.icon||'□',confidence:1,
+      inputs:[{name:'in',width:'0'}],outputs:[{name:'out',width:'0'}],
+      drilldown_composition:[],drilldown_gates:b.drilldown_gates||[],source:'composition'};
+    const g=drawBlock(scene,bg,x,40);
+    g.addEventListener('click',e=>{e.stopPropagation();selectBlock(bg,g);});
+    if(i<items.length-1) drawEdge(scene,x+BW,40+BH/2,x+BW+COL_GAP,40+BH/2,'');
+    x+=BW+COL_GAP;
+  }
+  fitView();
+}
+
+function renderGates(b) {
+  const items = b.drilldown_gates||[];
+  if (!items.length) return;
+  S.level=3; updateDots();
+  const scene = document.getElementById('scene');
+  scene.innerHTML=''; S.selectedId=null;
+  const cols=Math.ceil(Math.sqrt(items.length));
+  items.forEach((it,i)=>{
+    const col=i%cols,row=Math.floor(i/cols);
+    const x=40+col*(BW+40), y=40+row*(BH+24);
+    const bg={id:it.id,label:it.label,sublabel:it.type,type:it.type,
+      color:it.color,icon:'⊕',confidence:1,
+      inputs:[{name:'in',width:'0'}],outputs:[{name:'out',width:'0'}],
+      drilldown_composition:[],drilldown_gates:[],source:'gate'};
+    const g=drawBlock(scene,bg,x,y);
+    g.addEventListener('click',e=>{e.stopPropagation();selectBlock(bg,g);});
+  });
+  fitView();
+}
+
+// ── Block drawing ─────────────────────────────────────────────────────────────
+function drawBlock(scene, b, x, y) {
+  const g = document.createElementNS(SVG_NS,'g');
+  g.setAttribute('transform',`translate(${x},${y})`);
+  g.setAttribute('class','block-group');
+  g.dataset.blockId = b.id;
+  g.dataset.type = b.type||'';
+
+  const col = b.color||'#5e5c54';
+
+  // Shadow
+  const sh = el('rect',{x:2,y:2,width:BW,height:BH,rx:3,fill:'rgba(0,0,0,.4)'});
+  g.appendChild(sh);
+
+  // Body
+  const rect = el('rect',{x:0,y:0,width:BW,height:BH,rx:3,
+    fill:col,stroke:'rgba(0,0,0,.3)','stroke-width':1,class:'block-rect'});
+  g.appendChild(rect);
+
+  // Left accent strip
+  const strip = el('rect',{x:0,y:0,width:4,height:BH,rx:2,
+    fill:'rgba(255,255,255,.12)'});
+  g.appendChild(strip);
+
+  // Type label (small, top-left)
+  const typeLbl = el('text',{x:8,y:11,'font-size':7,'font-weight':600,
+    fill:'rgba(255,255,255,.45)',class:'block-sublabel'});
+  typeLbl.textContent = (b.type||'').toUpperCase();
+  g.appendChild(typeLbl);
+
+  // Icon
+  const icon = el('text',{x:BW-10,y:11,'font-size':10,
+    fill:'rgba(255,255,255,.4)','text-anchor':'end'});
+  icon.textContent = b.icon||'□';
+  g.appendChild(icon);
+
+  // Main label
+  const labelTxt = (b.label||'').length>18?(b.label||'').slice(0,16)+'…':(b.label||'');
+  const lbl = el('text',{x:BW/2,y:BH/2-5,'font-size':12,'font-weight':700,
+    fill:'rgba(255,255,255,.92)','text-anchor':'middle','dominant-baseline':'middle'});
+  lbl.textContent = labelTxt;
+  g.appendChild(lbl);
+
+  // Sub-label
+  const subTxt = (b.sublabel||'');
+  const subFinal = subTxt.length>24?subTxt.slice(0,22)+'…':subTxt;
+  const sub = el('text',{x:BW/2,y:BH/2+9,'font-size':9,
+    fill:'rgba(255,255,255,.38)','text-anchor':'middle','dominant-baseline':'middle'});
+  sub.textContent = subFinal;
+  g.appendChild(sub);
+
+  // Drill indicator
+  const drillable = b.drilldown_module ||
+    (b.drilldown_composition&&b.drilldown_composition.length);
+  if (drillable) {
+    const di = el('text',{x:BW-6,y:BH-5,'font-size':8,
+      fill:'rgba(255,255,255,.28)','text-anchor':'end'});
+    di.textContent = '⊕';
+    g.appendChild(di);
+  }
+
+  // Input ports (left)
+  const ins = (b.inputs||[]).slice(0,5);
+  ins.forEach((p,i)=>{
+    const pn = typeof p==='object'?p.name:p;
+    const pw = typeof p==='object'?p.width:'0';
+    const py = 16 + i*((BH-24)/Math.max(ins.length,1));
+    const d = el('circle',{cx:0,cy:py,r:3.5,
+      fill:'rgba(255,255,255,.45)',stroke:'rgba(0,0,0,.4)','stroke-width':.8,class:'port-dot'});
+    d.addEventListener('click',e=>{e.stopPropagation();copyText(pn);});
+    d.addEventListener('mouseenter',ev=>showTip(ev,pn,pw));
+    d.addEventListener('mouseleave',hideTip);
+    g.appendChild(d);
+  });
+
+  // Output ports (right)
+  const outs = (b.outputs||[]).slice(0,5);
+  outs.forEach((p,i)=>{
+    const pn = typeof p==='object'?p.name:p;
+    const pw = typeof p==='object'?p.width:'0';
+    const py = 16 + i*((BH-24)/Math.max(outs.length,1));
+    const d = el('circle',{cx:BW,cy:py,r:3.5,
+      fill:'rgba(255,255,255,.45)',stroke:'rgba(0,0,0,.4)','stroke-width':.8,class:'port-dot'});
+    d.addEventListener('click',e=>{e.stopPropagation();copyText(pn);});
+    d.addEventListener('mouseenter',ev=>showTip(ev,pn,pw));
+    d.addEventListener('mouseleave',hideTip);
+    g.appendChild(d);
+  });
+
+  scene.appendChild(g);
+  return g;
+}
+
+// ── Port tooltip ──────────────────────────────────────────────────────────────
+let _tip = null;
+function showTip(ev, name, width) {
+  hideTip();
+  _tip = document.createElement('div');
+  _tip.className = 'ptip';
+  _tip.textContent = (width&&width!=='0') ? `${name} [${width}]` : name;
+  document.body.appendChild(_tip);
+  const r = ev.target.getBoundingClientRect();
+  _tip.style.left = (r.left+8)+'px';
+  _tip.style.top  = (r.top-22)+'px';
+}
+function hideTip() { if(_tip){_tip.remove();_tip=null;} }
+
+// ── Edge drawing ──────────────────────────────────────────────────────────────
+function drawEdge(scene, x1, y1, x2, y2, label) {
+  // Horizontal cubic bezier
+  const dx = Math.max(Math.abs(x2-x1)*0.4, 30);
+  const d = `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`;
+  const path = el('path',{d,class:'edge-path','marker-end':'url(#arr)'});
+  // Insert before first block (so edges are behind)
+  scene.insertBefore(path, scene.firstChild);
+  if (label) {
+    const t = el('text',{
+      x:(x1+x2)/2, y:Math.min(y1,y2)-5,
+      class:'edge-label','text-anchor':'middle'});
+    t.textContent = label.length>14?label.slice(0,12)+'…':label;
+    scene.insertBefore(t, scene.firstChild);
+  }
+}
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+function layoutBlocks(blocks, conns) {
+  if (!blocks.length) return { positions:{} };
+
+  // Build adjacency
+  const inE={}, outE={};
+  for (const b of blocks) { inE[b.id]=[]; outE[b.id]=[]; }
+  for (const c of conns) {
+    if (inE[c.to_block]!==undefined)  inE[c.to_block].push(c.from_block);
+    if (outE[c.from_block]!==undefined) outE[c.from_block].push(c.to_block);
+  }
+
+  // BFS column assignment
+  const col = {};
+  const roots = blocks.map(b=>b.id).filter(id=>inE[id].length===0);
+  const q = [...(roots.length?roots:[blocks[0].id])];
+  for (const id of q) col[id]=0;
+  while (q.length) {
+    const id=q.shift();
+    for (const nx of outE[id]||[]) {
+      const c=(col[id]||0)+1;
+      if (col[nx]===undefined||col[nx]<c) { col[nx]=c; q.push(nx); }
+    }
+  }
+  for (const b of blocks) if (col[b.id]===undefined) col[b.id]=0;
+
+  // Check if degenerate (all in col 0 with >4 blocks)
+  const uniqueCols = new Set(Object.values(col)).size;
+  if (uniqueCols <= 1 && blocks.length > 4) {
+    return typeLayout(blocks);
+  }
+
+  // Place by column
+  const byCol={};
+  for (const b of blocks) (byCol[col[b.id]]=byCol[col[b.id]]||[]).push(b.id);
+  const positions={};
+  let cx=40;
+  const numCols = Math.max(...Object.keys(byCol).map(Number))+1;
+  for (let c=0;c<numCols;c++) {
+    const ids=byCol[c]||[];
+    let cy=40;
+    for (const id of ids) { positions[id]={x:cx,y:cy}; cy+=BH+ROW_GAP; }
+    cx+=BW+COL_GAP;
+  }
+  return { positions };
+}
+
+// Type-based layout: group blocks by source into columns
+function typeLayout(blocks) {
+  const groups = {
+    instance: [], clocked: [], comb: [], assign: []
+  };
+  for (const b of blocks) {
+    if (b.source==='instance') groups.instance.push(b);
+    else if (b.source==='always' && /posedge|negedge/.test(b.sensitivity||'')) groups.clocked.push(b);
+    else if (b.source==='always') groups.comb.push(b);
+    else groups.assign.push(b);
+  }
+
+  const colNames = {
+    instance:'Instances', clocked:'Sequential', comb:'Combinational', assign:'Assigns'
+  };
+  const positions={}, colLabels={};
+  const PAD=40;
+  let cx=PAD;
+  for (const [key, grp] of Object.entries(groups)) {
+    if (!grp.length) continue;
+    // Record column label position (x in SVG space + pan/zoom factored in later — just store x)
+    let cy=40;
+    for (const b of grp) { positions[b.id]={x:cx,y:cy}; cy+=BH+ROW_GAP; }
+    colLabels[cx+BW/2] = colNames[key];
+    cx+=BW+COL_GAP;
+  }
+  return { positions, colLabels };
+}
+
+// ── Selection / Sidebar ───────────────────────────────────────────────────────
+function selectBlock(b, g) {
+  document.querySelectorAll('.block-group.selected').forEach(el=>el.classList.remove('selected'));
+  if(g) g.classList.add('selected');
+  S.selectedId=b.id; S.currentBlock=b;
+  showSidebar(b);
+}
+
+function showSidebar(b) {
+  document.getElementById('sb-empty').style.display='none';
+  document.getElementById('sb-head').style.display='';
+  document.getElementById('sb-body').style.display='';
+  document.getElementById('sb-icon').textContent = b.icon||'□';
+  document.getElementById('sb-title').textContent = b.label||'Block';
+  document.getElementById('sb-sub').textContent   = b.sublabel||'';
+
+  const body = document.getElementById('sb-body');
+  body.innerHTML='';
+
+  // Classification
+  const s1=sec('Info');
+  s1.appendChild(kv('Type',b.type||'—'));
+  s1.appendChild(kv('Source',b.source||'—'));
+  if(b.instance_of) s1.appendChild(kv('Module',b.instance_of));
+  const pct=Math.round((b.confidence||0)*100);
+  const cf=document.createElement('div');
+  cf.innerHTML=`<div class="sb-lbl" style="margin-top:6px">Confidence — ${pct}%</div>
+    <div class="conf-track"><div class="conf-fill" style="width:${pct}%;background:${b.color||'var(--ok)'}"></div></div>`;
+  s1.appendChild(cf);
+  body.appendChild(s1);
+
+  // Port connections (for instances)
+  const pc = b.port_connections||{};
+  const allPorts = [...(b.inputs||[]), ...(b.outputs||[]).map(o=>({...o,_out:true}))];
+  if (allPorts.length) {
+    const s2=sec('Ports');
+    const pl=document.createElement('div');
+    pl.className='port-list';
+    for (const p of allPorts) {
+      const pname=typeof p==='object'?p.name:p;
+      const pwidth=typeof p==='object'?p.width:'0';
+      const isOut=p._out;
+      const signal=pc[pname];
+      const row=document.createElement('div');
+      row.className='port-row'; row.title='Click to copy';
+      const wstr=(pwidth&&pwidth!=='0')?`[${pwidth}]`:'';
+      row.innerHTML=`<span class="port-dir ${isOut?'out':'in'}">${isOut?'OUT':'IN'}</span>
+        <span class="port-name">${esc(pname)}</span>
+        <span class="port-width">${wstr}</span>
+        ${signal?`<span style="font-size:8px;color:var(--text-dim);font-family:var(--font-mono)">→ ${esc(signal)}</span>`:''}`;
+      row.addEventListener('click',()=>copyText(signal||pname));
+      pl.appendChild(row);
+    }
+    s2.appendChild(pl);
+    body.appendChild(s2);
+  }
+
+  // Operators
+  if((b.operators||[]).length){
+    const s3=sec('Operators');
+    const ol=document.createElement('div'); ol.className='op-list';
+    for(const op of b.operators){ const t=document.createElement('span'); t.className='op-tag'; t.textContent=op; ol.appendChild(t); }
+    s3.appendChild(ol); body.appendChild(s3);
+  }
+
+  // Snippet
+  if(b.snippet){
+    const s4=sec('Code');
+    const pre=document.createElement('div'); pre.className='snip'; pre.textContent=b.snippet;
+    s4.appendChild(pre); body.appendChild(s4);
+  }
+
+  // Drill
+  const drills=[];
+  if(b.drilldown_module) drills.push({
+    label:`Open ${b.drilldown_module}`, icon:'⊡', hi:true,
+    fn:()=>{ openModule(b.drilldown_module);
+      updateBreadcrumb([{label:S.currentModule?.name||'',action:()=>openModule(S.currentModule?.name||'')},{label:b.drilldown_module}]); }
+  });
+  if((b.drilldown_composition||[]).length) drills.push({
+    label:'Composition', icon:'⊕', hi:false,
+    fn:()=>{
+      renderComposition(b);
+      updateBreadcrumb([{label:S.currentModule?.name||'',action:()=>openModule(S.currentModule?.name||'')},{label:'Composition'}]);
+    }
+  });
+  if((b.drilldown_gates||[]).length) drills.push({
+    label:'Gate level', icon:'⊛', hi:false,
+    fn:()=>{ renderGates(b);
+      updateBreadcrumb([{label:S.currentModule?.name||'',action:()=>openModule(S.currentModule?.name||'')},{label:'Gates'}]); }
+  });
+  if(drills.length){
+    const s5=sec('Drill Down');
+    for(const d of drills){
+      const btn=document.createElement('button');
+      btn.className='drill-btn'+(d.hi?' hi':'');
+      btn.innerHTML=`${d.icon} ${d.label}`;
+      btn.addEventListener('click',d.fn);
+      s5.appendChild(btn);
+    }
+    body.appendChild(s5);
+  }
+}
+
+function drillBlock(b) {
+  if(b.drilldown_module) {
+    openModule(b.drilldown_module);
+  } else if((b.drilldown_composition||[]).length) {
+    renderComposition(b);
+    updateBreadcrumb([{label:S.currentModule?.name||'',action:()=>openModule(S.currentModule?.name||'')},{label:'Composition'}]);
+  }
+}
+
+function clearSidebar() {
+  document.getElementById('sb-empty').style.display='';
+  document.getElementById('sb-head').style.display='none';
+  document.getElementById('sb-body').style.display='none';
+  S.selectedId=null;
+}
+
+function sec(title) {
+  const s=document.createElement('div'); s.className='sb-sec';
+  const l=document.createElement('div'); l.className='sb-lbl'; l.textContent=title;
+  s.appendChild(l); return s;
+}
+function kv(k,v) {
+  const r=document.createElement('div'); r.className='sb-kv';
+  r.innerHTML=`<span class="sb-k">${esc(k)}</span><span class="sb-v">${esc(String(v))}</span>`;
+  return r;
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function goOverview() { renderOverview(); updateStats(); }
+
+function goBack() {
+  if(S.level===0) return;
+  if(S.level===1) { goOverview(); return; }
+  openModule(S.currentModule?.name||S.design.top_module||'');
+}
+
+function updateBreadcrumb(extra) {
+  const bc=document.getElementById('breadcrumb');
+  bc.innerHTML='';
+  const all=[{label:'Overview',action:goOverview},...extra];
+  all.forEach((it,i)=>{
+    const sp=document.createElement('span');
+    sp.className='bc-item'+(i===all.length-1?' active':'');
+    sp.textContent=it.label;
+    if(it.action&&i<all.length-1) sp.onclick=it.action;
+    bc.appendChild(sp);
+    if(i<all.length-1){ const sep=document.createElement('span'); sep.className='bc-sep'; sep.textContent='/'; bc.appendChild(sep); }
+  });
+}
+
+function updateDots() {
+  [0,1,2,3].forEach(i=>document.getElementById('dot'+i).classList.toggle('active',i<=S.level));
+}
+
+// ── Zoom / Pan ────────────────────────────────────────────────────────────────
+const canvas=document.getElementById('canvas');
+const scene=document.getElementById('scene');
+
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const d=e.deltaY>0?.88:1/.88;
+  const r=canvas.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  S.panX=mx-d*(mx-S.panX); S.panY=my-d*(my-S.panY); S.zoom*=d;
+  applyT();
+},{passive:false});
+
+canvas.addEventListener('mousedown',e=>{
+  if(e.button!==0) return;
+  S.dragging=true; S.dsx=e.clientX-S.panX; S.dsy=e.clientY-S.panY;
+  canvas.style.cursor='grabbing';
+});
+window.addEventListener('mousemove',e=>{
+  if(!S.dragging) return;
+  S.panX=e.clientX-S.dsx; S.panY=e.clientY-S.dsy; applyT();
+});
+window.addEventListener('mouseup',()=>{ S.dragging=false; canvas.style.cursor='grab'; });
+canvas.addEventListener('click',()=>{
+  document.querySelectorAll('.block-group.selected').forEach(g=>g.classList.remove('selected'));
+  S.selectedId=null;
+});
+
+function applyT() {
+  scene.setAttribute('transform',`translate(${S.panX},${S.panY}) scale(${S.zoom})`);
+}
+
+function fitView() {
+  const wrap=document.getElementById('canvas-wrap');
+  let bb;
+  try { bb=scene.getBBox(); } catch(e) { return; }
+  if(!bb||!bb.width||!bb.height) return;
+  const pad=50;
+  const cw=wrap.clientWidth-pad*2, ch=wrap.clientHeight-pad*2;
+  const sc=Math.min(cw/bb.width,ch/bb.height,1.6);
+  S.zoom=sc;
+  S.panX=pad-bb.x*sc+(cw-bb.width*sc)/2;
+  S.panY=pad-bb.y*sc+(ch-bb.height*sc)/2;
+  applyT();
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+document.getElementById('search-input').addEventListener('input',function(){
+  const q=this.value.trim().toLowerCase();
+  document.getElementById('search-clear').style.display=q?'':'none';
+  applySearch(q);
+});
+function clearSearch(){
+  document.getElementById('search-input').value='';
+  document.getElementById('search-clear').style.display='none';
+  applySearch('');
+}
+function applySearch(q){
+  if(!q||S.level===0){ document.querySelectorAll('.block-group').forEach(g=>g.classList.remove('dimmed')); return; }
+  document.querySelectorAll('.block-group[data-block-id]').forEach(g=>{
+    const bid=g.dataset.blockId;
+    const mod=S.currentModule;
+    if(!mod) return;
+    const b=(mod.blocks||[]).find(b=>b.id===bid);
+    if(!b) return;
+    const hay=[b.label,b.sublabel,b.type,...(b.inputs||[]).map(p=>typeof p==='object'?p.name:p),
+               ...(b.outputs||[]).map(p=>typeof p==='object'?p.name:p)].join(' ').toLowerCase();
+    g.classList.toggle('dimmed',!hay.includes(q));
+  });
+}
+
+// Keyboard shortcuts
+window.addEventListener('keydown',e=>{
+  if(e.target.matches('input')) return;
+  if(e.key==='/'||e.key==='f'&&e.ctrlKey){ e.preventDefault(); document.getElementById('search-input').focus(); }
+  if(e.key==='Escape'){ goBack(); }
+  if(e.key==='f'||e.key==='F') fitView();
+  if(e.key==='+'||e.key==='='){ S.zoom*=1.1; applyT(); }
+  if(e.key==='-'){ S.zoom/=1.1; applyT(); }
+});
+document.getElementById('search-input').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ clearSearch(); e.target.blur(); }
+});
+
+// ── SVG Export ────────────────────────────────────────────────────────────────
+function exportSVG() {
+  if(S.level===0){ showToast('Open a module first'); return; }
+  let bb;
+  try { bb=scene.getBBox(); } catch(e){ bb=null; }
+  if(!bb||!bb.width){ showToast('Nothing to export'); return; }
+
+  const pad=40;
+  // Inline all styles into the clone
+  const svgEl=document.getElementById('canvas');
+  const clone=svgEl.cloneNode(true);
+
+  // Clear transform from scene so it renders at natural coordinates
+  const sg=clone.querySelector('#scene');
+  if(sg) sg.removeAttribute('transform');
+
+  // Inline edge styles (CSS classes won't render in standalone SVG)
+  clone.querySelectorAll('.edge-path').forEach(p=>{
+    p.setAttribute('fill','none');
+    p.setAttribute('stroke','rgba(210,195,170,.22)');
+    p.setAttribute('stroke-width','1.5');
+  });
+  clone.querySelectorAll('.edge-label').forEach(t=>{
+    t.setAttribute('fill','rgba(210,195,170,.4)');
+    t.setAttribute('font-size','8');
+    t.setAttribute('font-family','monospace');
+  });
+  // Hide non-scene elements (col-labels etc.)
+  clone.querySelectorAll('#col-labels').forEach(d=>d.remove());
+
+  // Set viewbox to content bounds
+  const vx=bb.x-pad, vy=bb.y-pad;
+  const vw=bb.width+pad*2, vh=bb.height+pad*2;
+  clone.setAttribute('viewBox',`${vx} ${vy} ${vw} ${vh}`);
+  clone.setAttribute('width', vw);
+  clone.setAttribute('height', vh);
+  clone.setAttribute('xmlns', SVG_NS);
+
+  // Background
+  const bg=document.createElementNS(SVG_NS,'rect');
+  bg.setAttribute('x',vx); bg.setAttribute('y',vy);
+  bg.setAttribute('width',vw); bg.setAttribute('height',vh);
+  bg.setAttribute('fill','#15120f');
+  clone.insertBefore(bg, clone.firstChild);
+
+  // Title
+  const title=document.createElementNS(SVG_NS,'text');
+  title.setAttribute('x',vx+8); title.setAttribute('y',vy+14);
+  title.setAttribute('fill','rgba(200,185,160,.4)');
+  title.setAttribute('font-size','9'); title.setAttribute('font-family','monospace');
+  title.textContent=`RTLmap · ${S.currentModule?.name||''} · ${new Date().toLocaleDateString()}`;
+  const sg2=clone.querySelector('#scene');
+  if(sg2) sg2.parentNode.insertBefore(title, sg2);
+
+  const src=new XMLSerializer().serializeToString(clone);
+  const blob=new Blob([src],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=(S.currentModule?.name||'rtl')+'.svg';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Exported '+a.download);
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function updateStats(mod) {
+  const mods=S.design?.modules||{};
+  document.querySelector('#s-mod span').textContent=Object.keys(mods).length;
+  if(mod){
+    document.querySelector('#s-blk span').textContent=(mod.blocks||[]).length;
+    document.querySelector('#s-con span').textContent=(mod.connections||[]).length;
+  } else {
+    let tb=0,tc=0;
+    for(const m of Object.values(mods)){ tb+=(m.blocks||[]).length; tc+=(m.connections||[]).length; }
+    document.querySelector('#s-blk span').textContent=tb;
+    document.querySelector('#s-con span').textContent=tc;
+  }
+  document.getElementById('stat-right').textContent=(S.design?.files||[]).join(', ');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function el(tag,attrs){
+  const e=document.createElementNS(SVG_NS,tag);
+  for(const[k,v] of Object.entries(attrs)) e.setAttribute(k,v);
+  return e;
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function copyText(t){
+  navigator.clipboard?.writeText(t).catch(()=>{});
+  showToast('Copied: '+t);
+}
+let _tt;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),2200);
+}
+</script>
+</body>
+</html>
