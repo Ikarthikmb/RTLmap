@@ -1,0 +1,4 @@
+# RTLview has NO required dependencies — pure Python 3.8+ stdlib only.
+# The following are optional for future features:
+# pyverilog>=1.3.0   # alternative parser (more accurate, requires ply)
+# flask>=2.0.0       # alternative server (simpler code)
